@@ -21,6 +21,7 @@
 								   'minibuffer-history)))
    )
   ;; (message (format "keywords-->%s\n" keywords)) 
+  (setq ddgr-output-buffer (get-buffer-create "ddgr-output"))
   (let* (
 		 (cur-buf (current-buffer))
 		 (coding-system-for-read 'utf-8-dos)
@@ -32,7 +33,15 @@
 		 )
 	(if (process-live-p ddgr-process)
 		(process-send-string ddgr-process (format "*%s\n" keywords))	 
-	  (setq ddgr-process (start-process "ddgr" ddgr-output-buffer "c:/windows/System32/ddgr.exe" "--proxy" "http://127.0.0.1:10809" "-n" "10" keywords))
+	  (setq ddgr-process
+			(start-process
+			 "ddgr"
+			 ddgr-output-buffer
+			 "c:/windows/System32/ddgr.exe"
+			 "--proxy" "http://127.0.0.1:10809"
+			 "-n" "10"
+			 "-x"
+			 keywords))
 	  )
 	(window--display-buffer ddgr-output-buffer
 							window
@@ -40,35 +49,41 @@
 							'(display-buffer-same-window . ()))
 	(pop-to-buffer ddgr-output-buffer)
 	(ddgr-mode)
-	(sleep-for 1)
-	(pop-to-buffer cur-buf '(display-buffer-in-previous-window . ()) t)
+	;; (sleep-for 1)
+	;; (pop-to-buffer cur-buf '(display-buffer-in-previous-window . ()) t)
 	)
+  )
+(defun ddgr-goto-bottom()
+  (end-of-buffer)
+  (sleep-for 0.5)
+  (recenter -1 t)
   )
 (defun ddgr-first-set()
   (interactive)
   (process-send-string ddgr-process "f\n")
-  (end-of-buffer)
-  (sleep-for 0.5)
-  (recenter -1 t)
+  (ddgr-goto-bottom)
   )
 (defun ddgr-next-set()
   (interactive)
   (process-send-string ddgr-process "n\n")
-  (end-of-buffer)
-  (sleep-for 0.5)
-  (recenter -1 t)
+  (ddgr-goto-bottom)
   )
 (defun ddgr-prev-set()
   (interactive)
   (process-send-string ddgr-process "p\n")
-  (end-of-buffer)
-  (sleep-for 0.5)
-  (recenter -1 t)
+  (ddgr-goto-bottom)
   )
 (defun ddgr-help()
   (interactive)
   (process-send-string ddgr-process "?\n")
+  (ddgr-goto-bottom)
   )
+(defun ddgr-toggle-url()
+  (interactive)
+  (process-send-string ddgr-process "x\n")
+  (ddgr-goto-bottom)
+  )
+
 (defun ddgr-quit()
   (interactive)
   (bury-buffer)
@@ -78,6 +93,7 @@
   "n" #'ddgr-next-set
   "p" #'ddgr-prev-set
   "f" #'ddgr-first-set
+  "x" #'ddgr-toggle-url
   "*" #'ddgr
   "?" #'ddgr-help
   "q" #'ddgr-quit
@@ -91,7 +107,7 @@
 	(setenv "BROWSER" "w3m")
 	(setenv "PYTHONIOENCODING" "utf-8")
 	(setq-local buffer-read-only t)
-	(use-local-map tdr-font-mode-map)
+	(use-local-map ddgr-mode-map)
 	)
   )
 (provide 'ddgr)
