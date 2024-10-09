@@ -1,3 +1,4 @@
+(require 'cl-lib)
 (defvar ddgr-process nil)
 
 (defun zyt/get-marked-text()
@@ -54,7 +55,7 @@
 			 ddgr-output-buffer
 			 "c:/windows/System32/ddgr.exe"
 			 "--proxy" "http://127.0.0.1:10809"
-			 "-n" "10"
+			 "-n" "9"
 			 "-x"
 			 keywords))
 	  (set-process-filter (get-buffer-process "ddgr-output") #'ddgr-output-filter)
@@ -65,6 +66,7 @@
 							'(display-buffer-same-window . ()))
 	(pop-to-buffer ddgr-output-buffer)
 	(ddgr-mode)
+	(setq-local ddgr-page-num 0)
 	;; (sleep-for 1)
 	;; (pop-to-buffer cur-buf '(display-buffer-in-previous-window . ()) t)
 	)
@@ -77,18 +79,24 @@
 (defun ddgr-first-set()
   (interactive)
   (process-send-string ddgr-process "f\n")
+  (setf ddgr-page-num 0)
   (ddgr-goto-bottom)
   )
 (defun ddgr-next-set()
   (interactive)
   (process-send-string ddgr-process "n\n")
+  (cl-incf ddgr-page-num)
   (ddgr-goto-bottom)
   )
 (defun ddgr-prev-set()
   (interactive)
   (process-send-string ddgr-process "p\n")
+  (if (> ddgr-page-num 0)
+	  (cl-decf ddgr-page-num))
   (ddgr-goto-bottom)
   )
+(function-put 'ddgr-first-set 'menu-enable '(> ddgr-page-num 0))
+(function-put 'ddgr-prev-set 'menu-enable '(> ddgr-page-num 0))
 (defun ddgr-help()
   (interactive)
   (process-send-string ddgr-process "?\n")
@@ -104,6 +112,29 @@
   (interactive)
   (bury-buffer)
   )
+(defun ddg-self-insert-command()
+  (interactive)
+  (let* (
+		 (basic-event (event-basic-type last-input-event))
+		 (ch
+		  (if (symbolp basic-event)
+			  (get basic-event 'ascii-character)
+			basic-event
+			)
+		  )
+		 )
+	(if (and (>= ch ?1) (<= ch ?9))
+		;; (process-send-string ddgr-process (concat (format "%c" ch) "\n"))
+		(w3m (progn
+			   (process-send-string ddgr-process (concat (format "c %c" ch) "\n"))
+			   (sleep-for 0.5)
+			   (current-kill 0)
+			   )
+			 )
+	  (message (format "last input event %s" ch))
+	  )
+	)
+  )
 (defvar-keymap ddgr-mode-map
   :doc "Keymap for ddgr/duckduckgo search commands"
   "n" #'ddgr-next-set
@@ -113,7 +144,40 @@
   "*" #'ddgr
   "?" #'ddgr-help
   "q" #'ddgr-quit
+  "RET" #'org-open-at-point
+  "<remap> <self-insert-command>" #'ddg-self-insert-command
   )
+
+(define-key ddgr-mode-map [menu-bar ddgr] (cons "Duckduckgo" (make-sparse-keymap "ddgr-menu")))
+
+(define-key ddgr-mode-map [menu-bar ddgr visit] '(menu-item
+												 "1-10 open-url" nil
+												 :enable nil
+												 :help "press index number to open url accordingly"
+												 ))
+
+(define-key ddgr-mode-map [menu-bar ddgr utl-toggle] '(menu-item
+												  "toggle-url" ddgr-toggle-url
+												  :help "toggle url display"
+												  :keys "\\[ddgr-toggle-url]"
+												  ))
+
+(define-key ddgr-mode-map [menu-bar ddgr prev] '(menu-item
+												 "prev-set" ddgr-prev-set
+												 :help "previous search page"
+												 :keys "\\[ddgr-prev-set]"
+												 :enable (> ddgr-page-num 0)))
+
+(define-key ddgr-mode-map [menu-bar ddgr next] '(menu-item
+												 "next-set" ddgr-next-set
+												 :help "next search page"))
+
+(define-key ddgr-mode-map [menu-bar ddgr first] '(menu-item
+												  "first-set" ddgr-first-set
+												  :help "first search page"
+												  :keys "\\[ddgr-first-set]"
+												  :enable (> ddgr-page-num 0)))
+
 (defvar ddgr-output-buffer nil)
 (define-derived-mode ddgr-mode org-mode "ddgr"
   "duckduckgo search mode."
