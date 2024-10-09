@@ -53,7 +53,7 @@
 			(start-process
 			 "ddgr"
 			 ddgr-output-buffer
-			 "c:/windows/System32/ddgr.exe"
+			 (executable-find "ddgr")
 			 "--proxy" "http://127.0.0.1:10809"
 			 "-n" "9"
 			 "-x"
