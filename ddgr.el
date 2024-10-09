@@ -14,6 +14,21 @@
 	)
   )
 
+(defun ddgr-output-filter(process output)
+  (with-current-buffer ddgr-output-buffer
+	(progn
+	  (setq output (replace-regexp-in-string "\n\\([^[:space:]]\\)" "\n     \\1" output))
+	  (let ((buffer-read-only nil))
+		(if (> (length output) 200)
+			(erase-buffer)
+		  (end-of-buffer)
+		  )
+		(insert output)
+		)
+	  )
+	)
+  )
+(defvar-local ddgr-page-num 0)
 (defun ddgr (keywords)
   (interactive
    (list (or (zyt/get-marked-text)
@@ -42,6 +57,7 @@
 			 "-n" "10"
 			 "-x"
 			 keywords))
+	  (set-process-filter (get-buffer-process "ddgr-output") #'ddgr-output-filter)
 	  )
 	(window--display-buffer ddgr-output-buffer
 							window
