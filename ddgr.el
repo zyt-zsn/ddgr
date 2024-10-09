@@ -123,7 +123,6 @@
 	(setenv "BROWSER" "w3m")
 	(setenv "PYTHONIOENCODING" "utf-8")
 	(setq-local buffer-read-only t)
-	(use-local-map ddgr-mode-map)
 	)
   )
 (provide 'ddgr)
