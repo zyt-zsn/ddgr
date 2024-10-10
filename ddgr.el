@@ -49,13 +49,19 @@
 		 )
 	(if (process-live-p ddgr-process)
 		(process-send-string ddgr-process (format "*%s\n" keywords))	 
+	  ;; call ddgr-mode before start-process to make sure 
+	  (with-current-buffer ddgr-output-buffer
+		(ddgr-mode))
+	  (setenv "BROWSER" "w3m")
+	  (setenv "PYTHONIOENCODING" "utf-8")
 	  (setq ddgr-process
 			(start-process
 			 "ddgr"
 			 ddgr-output-buffer
 			 (executable-find "ddgr")
 			 "--proxy" "http://127.0.0.1:10809"
-			 "-n" "9"
+			 ;; 考虑 0/9 被config.org 配置为 evil-end-of-visual-line/evil-beginning-of-visual-line, 故只将 1-8 作为快速url跳转键
+			 "-n" "8"
 			 "-x"
 			 keywords))
 	  (set-process-filter (get-buffer-process "ddgr-output") #'ddgr-output-filter)
@@ -65,7 +71,6 @@
 							'resuse
 							'(display-buffer-same-window . ()))
 	(pop-to-buffer ddgr-output-buffer)
-	(ddgr-mode)
 	(setq-local ddgr-page-num 0)
 	;; (sleep-for 1)
 	;; (pop-to-buffer cur-buf '(display-buffer-in-previous-window . ()) t)
@@ -145,22 +150,26 @@
   "?" #'ddgr-help
   "q" #'ddgr-quit
   "RET" #'org-open-at-point
+  ;; "<remap> <digit-argument>" #'ddg-self-insert-command
+  ;; 不同于 evil-normal-state-map, evil-emacs-state-map 将数字小键盘的数字输入识别为 self-insert-command
+  ;; 故不能只处理 digit-argument, 仍需对 self-insert-command 同一处理
   "<remap> <self-insert-command>" #'ddg-self-insert-command
   )
 
 (define-key ddgr-mode-map [menu-bar ddgr] (cons "Duckduckgo" (make-sparse-keymap "ddgr-menu")))
 
 (define-key ddgr-mode-map [menu-bar ddgr visit] '(menu-item
-												 "1-10 open-url" nil
-												 :enable nil
-												 :help "press index number to open url accordingly"
-												 ))
+												  ;; 考虑 0/9 被config.org 配置为 evil-end-of-visual-line/evil-beginning-of-visual-line, 故只将 1-8 作为快速url跳转键
+												  "1-8 open-url" nil
+												  :enable nil
+												  :help "press index number to open url accordingly"
+												  ))
 
 (define-key ddgr-mode-map [menu-bar ddgr utl-toggle] '(menu-item
-												  "toggle-url" ddgr-toggle-url
-												  :help "toggle url display"
-												  :keys "\\[ddgr-toggle-url]"
-												  ))
+													   "toggle-url" ddgr-toggle-url
+													   :help "toggle url display"
+													   :keys "\\[ddgr-toggle-url]"
+													   ))
 
 (define-key ddgr-mode-map [menu-bar ddgr prev] '(menu-item
 												 "prev-set" ddgr-prev-set
@@ -184,8 +193,6 @@
   :keymap ddgr-mode-map
   (setq ddgr-output-buffer (get-buffer-create "ddgr-output"))
   (with-current-buffer ddgr-output-buffer
-	(setenv "BROWSER" "w3m")
-	(setenv "PYTHONIOENCODING" "utf-8")
 	(setq-local buffer-read-only t)
 	(setq evil-normal-state-local-map ddgr-mode-map)
 	)
