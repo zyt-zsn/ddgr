@@ -14,19 +14,46 @@
 	 )
 	)
   )
-
+(defvar ddgr-in-progress nil)
 (defun ddgr-output-filter(process output)
   (with-current-buffer ddgr-output-buffer
-	(progn
-	  (setq output (replace-regexp-in-string "\n\\([^[:space:]]\\)" "\n     \\1" output))
-	  (let ((buffer-read-only nil))
-		(if (> (length output) 200)
+	(if (> (length output) 200)
+		(let ((buffer-read-only nil))
+		  ;; `*` is specially treated in org mode
+		  (setq output (replace-regexp-in-string "\n\\([[:space:]]*\\)\\*\\([[:space:]]*other inputs are considered as new search keywords\\)" "\n\\1~*~\\2" output))
+		  ;; Indent search result abstract
+		  (setq output (replace-regexp-in-string "\n\\([^[:space:]]\\)" "\n     \\1" output))
+		  ;; Eliminate unnecessary prompt
+		  (setq output (replace-regexp-in-string "\n +ddgr (\\? for help): " "" output))
+
+		  (if (string-match "omniprompt keys:" output)
+			  (setq output (replace-regexp-in-string "\n\\([[:space:]]*\\)\\(omniprompt keys:\\)\\([[:space:]]*\\)" "\n\* \\2\\3" output))
+			(setq output (format "* Search results(Page: %d)\n%s" ddgr-page-num output))
+			(setq output (concat output (ddgr-help)))
+			)
+		  (let (
+				(line (line-number-at-pos))
+				(pos (point))
+				)
 			(erase-buffer)
-		  (end-of-buffer)
+			(insert output)
+			(goto-line line)
+			;; (goto-char pos)
+			)
 		  )
-		(insert output)
-		)
+	  ;; (message output)
 	  )
+	)
+  (setq ddgr-in-progress nil)
+  )
+(defun ddgr--signal-process(process args)
+  (if ddgr-in-progress
+	  (progn
+		(message "正在处理前次请求，请稍后尝试...")
+		nil)
+	(setq ddgr-in-progress t)
+	(process-send-string process args)
+	t
 	)
   )
 (defvar-local ddgr-page-num 0)
@@ -48,7 +75,7 @@
 			  (split-window (selected-window) nil direction nil)))
 		 )
 	(if (process-live-p ddgr-process)
-		(process-send-string ddgr-process (format "*%s\n" keywords))	 
+		(ddgr--signal-process ddgr-process (format "*%s\n" keywords))	 
 	  ;; call ddgr-mode before start-process to make sure 
 	  (with-current-buffer ddgr-output-buffer
 		(ddgr-mode))
@@ -77,41 +104,61 @@
 	)
   )
 (defun ddgr-goto-bottom()
-  (end-of-buffer)
-  (sleep-for 0.5)
-  (recenter -1 t)
+  ;; (end-of-buffer)
+  ;; (sleep-for 0.5)
+  ;; "recenter" may cause screen flashing
+  ;; (recenter -1 t)
   )
 (defun ddgr-first-set()
   (interactive)
-  (process-send-string ddgr-process "f\n")
-  (setf ddgr-page-num 0)
-  (ddgr-goto-bottom)
+  (if (= 0 ddgr-page-num)
+	  (progn
+		(message "Already at the first page.")
+		(beep)
+		)
+	(if (ddgr--signal-process ddgr-process "f\n")
+		(setf ddgr-page-num 0))
+	)
   )
 (defun ddgr-next-set()
   (interactive)
-  (process-send-string ddgr-process "n\n")
-  (cl-incf ddgr-page-num)
-  (ddgr-goto-bottom)
+  (if (ddgr--signal-process ddgr-process "n\n")
+	  (cl-incf ddgr-page-num))
   )
 (defun ddgr-prev-set()
   (interactive)
-  (process-send-string ddgr-process "p\n")
-  (if (> ddgr-page-num 0)
-	  (cl-decf ddgr-page-num))
-  (ddgr-goto-bottom)
+  (if (= 0 ddgr-page-num)
+	  (progn
+		(message "Already at the first page.")
+		(beep)
+		)
+	(if (ddgr--signal-process ddgr-process "p\n")
+		(cl-decf ddgr-page-num))
+	)
   )
 (function-put 'ddgr-first-set 'menu-enable '(> ddgr-page-num 0))
 (function-put 'ddgr-prev-set 'menu-enable '(> ddgr-page-num 0))
 (defun ddgr-help()
-  (interactive)
-  (process-send-string ddgr-process "?\n")
-  (ddgr-goto-bottom)
+  ;; (interactive)
+  ;; (ddgr--signal-process ddgr-process "?\n")
+  "* omniprompt keys:
+  n, p, f               fetch the next, prev or first set of search results
+  index                 open the result corresponding to index in browser
+  o [index|range|a ...] open space-separated result indices, ranges or all
+  O [index|range|a ...] like key 'o', but try to open in a GUI browser
+  d keywords            new DDG search for 'keywords' with original options
+                        should be used to search omniprompt keys and indices
+  x                     toggle url expansion
+  c index               copy url to clipboard
+  q, ^D, double Enter   exit ddgr
+  ?                     show omniprompt help
+  ~*~                     other inputs are considered as new search keywords"
   )
 (defun ddgr-toggle-url()
   (interactive)
-  (process-send-string ddgr-process "x\n")
-  (ddgr-goto-bottom)
+  (ddgr--signal-process ddgr-process "x\n")
   )
+
 
 (defun ddgr-quit()
   (interactive)
@@ -129,14 +176,14 @@
 		  )
 		 )
 	(if (and (>= ch ?1) (<= ch ?9))
-		;; (process-send-string ddgr-process (concat (format "%c" ch) "\n"))
+		;; (ddgr--signal-process ddgr-process (concat (format "%c" ch) "\n"))
 		(w3m (progn
-			   (process-send-string ddgr-process (concat (format "c %c" ch) "\n"))
+			   (ddgr--signal-process ddgr-process (concat (format "c %c" ch) "\n"))
 			   (sleep-for 0.5)
 			   (current-kill 0)
 			   )
 			 )
-	  (message (format "last input event %s" ch))
+	  (message "Read-only, '?' to check supported cmds")
 	  )
 	)
   )
