@@ -197,9 +197,9 @@
   "?" #'ddgr-help
   "q" #'ddgr-quit
   "RET" #'org-open-at-point
-  ;; "<remap> <digit-argument>" #'ddg-self-insert-command
+  "<remap> <digit-argument>" #'ddg-self-insert-command
   ;; 不同于 evil-normal-state-map, evil-emacs-state-map 将数字小键盘的数字输入识别为 self-insert-command
-  ;; 故不能只处理 digit-argument, 仍需对 self-insert-command 同一处理
+  ;; 故不能只处理 digit-argument, 仍需对 self-insert-command 进行处理
   "<remap> <self-insert-command>" #'ddg-self-insert-command
   )
 
