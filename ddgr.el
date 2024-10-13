@@ -1,4 +1,5 @@
 (require 'cl-lib)
+(require 'w3m)
 (defvar ddgr-process nil)
 
 (defun zyt/get-marked-text()
@@ -16,6 +17,7 @@
   )
 (defvar ddgr-in-progress nil)
 (defun ddgr-output-filter(process output)
+  (setq ddgr-in-progress nil)
   (with-current-buffer ddgr-output-buffer
 	(if (> (length output) 200)
 		(let ((buffer-read-only nil))
@@ -41,10 +43,22 @@
 			;; (goto-char pos)
 			)
 		  )
+	  (if (eq ddgr-prev-request 'open-url)
+		  (progn
+			(setq-local ddgr-prev-request nil)
+			(if-let ((w3m-buf (car (w3m-list-buffers))))
+				(pop-to-buffer w3m-buf))
+			(w3m (progn
+				   ;; (sleep-for 0.5)
+				   (current-kill 0)
+				   )
+				 )
+			(pop-to-buffer ddgr-output-buffer)
+			)
+		)
 	  ;; (message output)
 	  )
 	)
-  (setq ddgr-in-progress nil)
   )
 (defun ddgr--signal-process(process args)
   (if ddgr-in-progress
@@ -89,7 +103,7 @@
 			   "ddgr"
 			   ddgr-output-buffer
 			   (executable-find "ddgr")
-			   "--proxy" "http://127.0.0.1:10809"
+			   "--proxy" (concat "http://"  (car (nth 0 (w32reg-get-ie-proxy-config))))
 			   ;; 考虑 0/9 被config.org 配置为 evil-end-of-visual-line/evil-beginning-of-visual-line, 故只将 1-8 作为快速url跳转键
 			   "-n" "8"
 			   "-x"
@@ -181,13 +195,11 @@
 		  )
 		 )
 	(if (and (>= ch ?1) (<= ch ?9))
-		;; (ddgr--signal-process ddgr-process (concat (format "%c" ch) "\n"))
-		(w3m (progn
-			   (ddgr--signal-process ddgr-process (concat (format "c %c" ch) "\n"))
-			   (sleep-for 0.5)
-			   (current-kill 0)
-			   )
-			 )
+		(progn
+		  (setq-local ddgr-prev-request 'open-url)
+		  (ddgr--signal-process ddgr-process (concat (format "c %c" ch) "\n"))
+		  )
+	  
 	  (message "Read-only, '?' to check supported cmds")
 	  )
 	)
@@ -241,6 +253,7 @@
 
 (defvar ddgr-output-buffer nil)
 (defvar-local ddgr-search-keys nil)
+(defvar-local ddgr-prev-request nil)
 (define-derived-mode ddgr-mode org-mode "ddgr"
   "duckduckgo search mode."
   :keymap ddgr-mode-map
