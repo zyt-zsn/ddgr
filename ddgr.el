@@ -28,7 +28,7 @@
 
 		  (if (string-match "omniprompt keys:" output)
 			  (setq output (replace-regexp-in-string "\n\\([[:space:]]*\\)\\(omniprompt keys:\\)\\([[:space:]]*\\)" "\n\* \\2\\3" output))
-			(setq output (format "* Search results(Page: %d)\n%s" ddgr-page-num output))
+			(setq output (format "* ~%s~ Search results(Page: %d)\n%s" ddgr-search-keys ddgr-page-num output))
 			(setq output (concat output (ddgr-help)))
 			)
 		  (let (
@@ -74,24 +74,29 @@
 		  (or (get-buffer-window ddgr-output-buffer t)
 			  (split-window (selected-window) nil direction nil)))
 		 )
-	(if (process-live-p ddgr-process)
-		(ddgr--signal-process ddgr-process (format "*%s\n" keywords))	 
-	  ;; call ddgr-mode before start-process to make sure 
-	  (with-current-buffer ddgr-output-buffer
-		(ddgr-mode))
-	  (setenv "BROWSER" "w3m")
-	  (setenv "PYTHONIOENCODING" "utf-8")
-	  (setq ddgr-process
-			(start-process
-			 "ddgr"
-			 ddgr-output-buffer
-			 (executable-find "ddgr")
-			 "--proxy" "http://127.0.0.1:10809"
-			 ;; 考虑 0/9 被config.org 配置为 evil-end-of-visual-line/evil-beginning-of-visual-line, 故只将 1-8 作为快速url跳转键
-			 "-n" "8"
-			 "-x"
-			 keywords))
-	  (set-process-filter (get-buffer-process "ddgr-output") #'ddgr-output-filter)
+	(with-current-buffer ddgr-output-buffer
+	  (if (process-live-p ddgr-process)
+		  (and
+		   (ddgr--signal-process ddgr-process (format "*%s\n" keywords))
+		   (setq-local ddgr-search-keys keywords)
+		   )
+		;; call ddgr-mode before start-process to make sure
+		(ddgr-mode)
+		(setenv "BROWSER" "w3m")
+		(setenv "PYTHONIOENCODING" "utf-8")
+		(setq ddgr-process
+			  (start-process
+			   "ddgr"
+			   ddgr-output-buffer
+			   (executable-find "ddgr")
+			   "--proxy" "http://127.0.0.1:10809"
+			   ;; 考虑 0/9 被config.org 配置为 evil-end-of-visual-line/evil-beginning-of-visual-line, 故只将 1-8 作为快速url跳转键
+			   "-n" "8"
+			   "-x"
+			   keywords))
+		(setq-local ddgr-search-keys keywords)
+		(set-process-filter (get-buffer-process "ddgr-output") #'ddgr-output-filter)
+		)
 	  )
 	(window--display-buffer ddgr-output-buffer
 							window
@@ -235,6 +240,7 @@
 												  :enable (> ddgr-page-num 0)))
 
 (defvar ddgr-output-buffer nil)
+(defvar-local ddgr-search-keys nil)
 (define-derived-mode ddgr-mode org-mode "ddgr"
   "duckduckgo search mode."
   :keymap ddgr-mode-map
