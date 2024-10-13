@@ -43,21 +43,25 @@
 			;; (goto-char pos)
 			)
 		  )
-	  (if (eq ddgr-prev-request 'open-url)
-		  (progn
-			(setq-local ddgr-prev-request nil)
-			(if-let ((w3m-buf (car (w3m-list-buffers))))
-				(pop-to-buffer w3m-buf))
-			(w3m (progn
-				   ;; (sleep-for 0.5)
-				   (current-kill 0)
-				   )
-				 )
-			(pop-to-buffer ddgr-output-buffer)
+	  (when (eq ddgr-prev-request 'open-url)
+		(setq-local ddgr-prev-request nil)
+		(let* (
+			   (direction 'right)
+			   (window
+				(cond
+				 ((and (car (w3m-list-buffers)) (get-buffer-window (car (w3m-list-buffers)))))
+				 ((window-in-direction direction))
+				 (t
+				  (split-window (selected-window) nil direction nil))
+				 ))
+			   )
+		  (with-selected-window window
+			(w3m (current-kill 0))
 			)
+		  )
 		)
-	  ;; (message output)
 	  )
+	;; (message output)
 	)
   )
 (defun ddgr--signal-process(process args)
