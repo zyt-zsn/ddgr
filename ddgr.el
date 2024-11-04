@@ -47,15 +47,31 @@
 		(setq-local ddgr-prev-request nil)
 		(let* (
 			   (direction 'right)
-			   (window
-				(cond
-				 ((and (car (w3m-list-buffers)) (get-buffer-window (car (w3m-list-buffers)))))
-				 ((window-in-direction direction))
-				 (t
-				  (split-window (selected-window) nil direction nil))
-				 ))
+			   ;; (window
+			   ;; 	(cond
+			   ;; 	 ((and (car (w3m-list-buffers)) (get-buffer-window (car (w3m-list-buffers)))))
+			   ;; 	 ((window-in-direction direction))
+			   ;; 	 (t
+			   ;; 	  (split-window (selected-window) nil direction nil))
+			   ;; 	 ))
 			   )
-		  (with-selected-window window
+		  (unless (get-buffer "*w3m*")
+			(w3m)
+			)
+		  ;; (with-selected-window window
+		  (with-selected-window 
+			  ;; (display-buffer "*w3m*" '(display-buffer-use-some-frame . '((frame-predicate . (lambda(frm) (null (eq (selected-frame) frm)))))))
+			  (display-buffer
+			   "*w3m*"
+			   (list
+				'(
+				  display-buffer-reuse-window
+				  display-buffer-use-some-frame
+				  )
+				'(inhibit-switch-frame . nil)
+				(cons 'reusable-frames 'visible)
+				(cons 'frame-predicate  (lambda(frm) (null (eq (selected-frame) frm))))
+				))
 			(w3m (current-kill 0))
 			)
 		  )
@@ -88,9 +104,9 @@
 		 (coding-system-for-read 'utf-8-dos)
 		 (coding-system-for-write 'utf-8-dos)
 		 (direction 'right)
-		 (window
-		  (or (get-buffer-window ddgr-output-buffer t)
-			  (split-window (selected-window) nil direction nil)))
+		 ;; (window
+		 ;;  (or (get-buffer-window ddgr-output-buffer t)
+		 ;; 	  (split-window (selected-window) nil direction nil)))
 		 )
 	(with-current-buffer ddgr-output-buffer
 	  (if (process-live-p ddgr-process)
@@ -116,11 +132,8 @@
 		(set-process-filter (get-buffer-process "ddgr-output") #'ddgr-output-filter)
 		)
 	  )
-	(window--display-buffer ddgr-output-buffer
-							window
-							'resuse
-							'(display-buffer-same-window . ()))
-	(pop-to-buffer ddgr-output-buffer)
+	;; (pop-to-buffer ddgr-output-buffer '(display-buffer-use-some-frame . '((frame-predicate . (lambda(frm) (null (eq (selected-frame) frm)))))))
+	(display-buffer ddgr-output-buffer '(display-buffer-use-some-frame . '((frame-predicate . (lambda(frm) (null (eq (selected-frame) frm)))))))
 	(setq-local ddgr-page-num 0)
 	;; (sleep-for 1)
 	;; (pop-to-buffer cur-buf '(display-buffer-in-previous-window . ()) t)
