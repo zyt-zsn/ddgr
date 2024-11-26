@@ -55,14 +55,23 @@
 			   ;; 	  (split-window (selected-window) nil direction nil))
 			   ;; 	 ))
 			   )
-		  (unless (get-buffer "*w3m*")
-			(w3m)
+		  (if (eq browse-url-browser-function 'w3m)
+			  (unless (get-buffer "*w3m*")
+				(w3m)
+				)
+			(unless (get-buffer "*eww*")
+			  ;; Use a fake url to start eww.
+			  (eww "www.sohu.com")
+			  )
 			)
 		  ;; (with-selected-window window
 		  (with-selected-window 
 			  ;; (display-buffer "*w3m*" '(display-buffer-use-some-frame . '((frame-predicate . (lambda(frm) (null (eq (selected-frame) frm)))))))
 			  (display-buffer
-			   "*w3m*"
+			   (if (eq browse-url-browser-function 'w3m)
+				   "*w3m*"
+				 "*eww*"
+				 )
 			   (list
 				'(
 				  display-buffer-reuse-window
@@ -72,7 +81,7 @@
 				(cons 'reusable-frames 'visible)
 				(cons 'frame-predicate  (lambda(frm) (null (eq (selected-frame) frm))))
 				))
-			(w3m (current-kill 0))
+			(browse-url (current-kill 0))
 			)
 		  )
 		)
